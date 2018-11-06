@@ -1,78 +1,150 @@
 ---
-title: "Visualizing the popularity of tourist destinations in 2010-2016 "
+title: "Visualizing  arrivals and expenditures in different countries"
 author: Jiazhen Sun
-subtitle: Subtitle here if desired
+subtitle: "Quantifing and analyzing travel destination popularity by arrivals and expenditures data in 2010-2016"
 ---
 
 # Introduction
-My really awesome and complete introduction will go here.  
 
-> I know words.  I have the best words.  ~ Donald Trump
+> The world is a book and those who do not travel read only one page.  ~ Saint Augustine
 
-# Materials and methods
-
-Narrative and most code will go here.  Describe what you are doing and show how to do it (with code).
-
-You can do bullets like this:
-
-* The first most important thing
-* The second most important thing
-* The third most important thing
-
-You can do numbers like this:
-
-1. The first most important thing
-2. The second most important thing
-3. The third most important thing
-
-See [http://rmarkdown.rstudio.com/](http://rmarkdown.rstudio.com/) for all the amazing things you can do.
+<img src="http://www.bestfive.in/wp-content/uploads/2017/04/cropped-T0328COVERILLO2_HR.jpg" width="1000">
+<small><small><small>License of this image may be subject to copyright via [odyssey](http://www.bestfive.in/wp-content/uploads/2017/04/cropped-T0328COVERILLO2_HR.jpg)</small></small></small>
 
 
-Here's my first code chunk.
-```{r}
-1+2
-```
+
+Travel is an eternal topic for humans. With the rapid development of global economy and  transportation, tourism is also growing vigorously, especially outbound tourism. Many countries seize the opportunities, achieve a big jump in tourism and make the prosperous tourism industry become a pillar of the national economy. This study focuses on the worldwide outbound tourism to evaluate the popularity and development of tourism in different countries by using the arrivals and expenditures data in 2010-2016. Based on arrivals and expenditures data in different countries, their positive correlation can be accessed, and the expenditures per capita in each countries also can be calculated. In order to specify and quantify the popularity and seek an entry point, this work visualizes the trend of expenditure per capita in different countries in one graph according to the actual locations on the world map, rates the potential travel cost (the mean expenditure per capita) in different countries and creates an interactive map to display the level of the mean expenditure per capita. The results show that a rise either in arrivals or in expenditures is significant, while some countries experienced large changes through years, several countries had higher expenditure but relatively less arrivals. Both generality and specific characteristics are worth further discussions.
+
+
+
+# Data and methods
+
+Raw data include the number of arrivals and the expenditures within a time span which from 1995 to 2016. All data in this work are drawn from The World Bank. The `wbstats` package makes load data automatically through the internet possible.
+
+See [here](https://data.worldbank.org/indicator/ST.INT.ARVL/) for more information.
+
+In order to focus on the late trends, I only filter the data from 2010 to 2016. Data wrangling and visualization is processing through the following 4 aspects:
+
+* Visualizing the correlation between the arrivals and expenditures
+* Visualizing the visualize the trend of the "Expenditure per Capita(US$)” 
+* Interactive Visualization of the level of the "Expenditure per Capita(US$)"
+* other analysis
+
+
+## Data Preparation
+
 
 Load any required packages in a code chunk (you may need to install some packages):
 
 ```{r, message=F, warning=F}
+library(tidyr)
 library(dplyr)
+library(spData)
+library(sf)
+library(wbstats)
+library(geofacet)
 library(ggplot2)
 library(maps)
-library(spocc)
-knitr::opts_chunk$set(cache=TRUE)  # cache the results for quick compiling
+library(rworldmap)
+library(leaflet)
+library(PerformanceAnalytics)
 ```
 
+At first, load data use 'wb' function which from 'wbstats' package to load the raw data from the World Bank.
 
-We are going to use the `occ()` function to download _occurrence_ records for the American robin (_Turdus migratorius_) from the [Global Biodiversity Information Facility](gbif.org).
-
-<img src="https://upload.wikimedia.org/wikipedia/commons/b/b8/Turdus-migratorius-002.jpg" alt="alt text" width="200">
-<small><small><small>Licensed under CC BY-SA 3.0 via [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Turdus-migratorius-002.jpg#/media/File:Turdus-migratorius-002.jpg)</small></small></small>
-
-```{r, warning=F} 
-## define which species to query
-sp='Turdus migratorius'
-
-## run the query and convert to data.frame()
-d = occ(query=sp, from='ebird',limit = 100) %>% occ2df()
+```{r}
+# download data
+arrivals <- wb(indicator = "ST.INT.ARVL",startdate = 2010,enddate = 2016)
+receipt <- wb(indicator = "ST.INT.TVLR.CD",startdate = 2010,enddate = 2016)
 ```
-This can take a few seconds.
 
-```{r, fig.width=6, fig.height=3, fig.cap="Map illustrating the known occurrence locations"}
-# Load coastline
-map=map_data("world")
-
-
+```{r}
+# data wrangling
+arrivals_t <- spread(arrivals,date,value)
+receipt_t <- receipt %>% 
+  slice(303:n())%>% 
+  spread(date,value) %>% 
+  na.omit() %>% 
+  gather("date","value",6:12) 
+tour <- left_join(receipt_t,arrivals,by=c("iso3c"="iso3c","iso2c"="iso2c","date"="date","country"="country")) %>% 
+  na.omit()
+names(tour)[names(tour)=="value.x"]="expenditures"
+names(tour)[names(tour)=="value.y"]="arrivals"
 ```
+
 
 
 # Results
+## Correlation
 
-Show tables, plots, etc. and describe them.
+We are going to use the `PerformanceAnalytics` package to obtain a correlation matrix between arrivals and expenditures. This matrix contains four segments.
+
+1. A distribution of the expenditures (upper left)
+2. A distribution of the arrivals (lower right)
+3. A bivariate scatter diagram with fitting lines (lower left)
+4. A Correlation coefficient and a significance level (upper right)
 
 ```{r}
+m_arr_rec <- select(tour,expenditures,arrivals)
+chart.Correlation(m_arr_rec, histogram=TRUE, pch=19)
+```
+
+We can see the *** means that p-value < 0.001 (Extremely significant). The graph also shows a high correlation between arrivals and expenditures. 
+
+## Trends
+(still working on it... so the result will not show)
+
+We are going to use the `facet_geo` package to obtain the trend of the "Expenditure per Capita(US$)" in different countries in one graph according to the actual locations on the world map through 6 years.
+```{r, message=F,warning=F,eval=FALSE}
+ggplot(tour,aes(date,expenditures/arrivals))+
+  geom_line()+
+  facet_geo(~country,grid = "world_countries_grid1",scales="free_y")+
+  xlab("Year")+
+  ylab("Expenditure per Capita(US$)")+
+  theme(strip.text.x=element_text(size = 100))
+```
+
+##Ranking
+We are going to use the `leaflet` package to obtain interactive Visualization of the level of the "Expenditure per Capita(US$)"
+Firstly, I am going to obtain the mean expenditure per capita for each country through 6 years.
+```{r}
+mean_ex <- tour %>% 
+  mutate(expenditure=expenditures/arrivals)%>% 
+  group_by(country) %>% 
+  summarise(mean_expenditure=mean(expenditure))
 
 ```
+
+Secondly, I am going to try to rank them and display the level using star symbols.
+```{r}
+labels=c("★","★★","★★★","★★★★","★★★★★")
+mean_ex1 <- cut(mean_ex$mean_expenditure,
+                breaks = quantile(mean_ex$mean_expenditure,seq(0,1,0.2)),
+                include.lowest = TRUE,
+                labels)
+mean_ex2 <- mean_ex %>% 
+  mutate(level=mean_ex1)
+```
+
+Finally, I am going to create an interactive visualization of the level using 'leaflet' function from 'leaflet' package.
+```{r,warning=F,results='hide'}
+mean_m <- joinCountryData2Map(mean_ex2,joinCode="NAME",nameJoinColumn="country")
+mean_map <- leaflet(mean_m) %>% 
+  addTiles() %>% 
+  addPolygons(weight=1,
+              color="grey",
+              label = paste("cost level in ",mean_m$country,":",mean_m$level),
+              highlight=highlightOptions(weight = 2,
+                                         color = "steelblue4",
+                                         bringToFront = TRUE))
+```
+
+```{r}
+mean_map
+```
+
+## other analysis
+working on it...
 
 # Conclusions
 
