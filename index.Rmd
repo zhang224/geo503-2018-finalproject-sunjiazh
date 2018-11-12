@@ -101,7 +101,7 @@ ggplot(tour,aes(date,expenditures/arrivals))+
   facet_geo(~country,grid = "world_countries_grid1",scales="free_y")+
   xlab("Year")+
   ylab("Expenditure per Capita(US$)")+
-  theme(strip.text.x=element_text(size = 100))
+  theme(strip.text.x=element_blank())
 ```
 
 ##Ranking
